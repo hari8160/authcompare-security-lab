@@ -1,0 +1,79 @@
+name: authcompare-security-lab
+
+networks:
+  authlab:
+    name: authlab
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: authlab-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DATABASE_NAME:-authlab}
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD:-hari}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - ../database/schema/init.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+      - ../database/seed/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [authlab]
+
+  oauth-server:
+    build:
+      context: ../oauth-server
+    container_name: authlab-oauth-server
+    restart: unless-stopped
+    environment:
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-authcompare-client}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:-local-oauth-secret-change-me}
+      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/local-lab}
+      DEMO_OAUTH_USERNAME: ${DEMO_OAUTH_USERNAME:-labuser}
+      DEMO_OAUTH_PASSWORD: ${DEMO_OAUTH_PASSWORD:-LabPassword123!}
+    ports: ["9000:9000"]
+    networks: [authlab]
+
+  backend:
+    build:
+      context: ../backend
+    container_name: authlab-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      oauth-server:
+        condition: service_started
+    environment:
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_NAME: ${DATABASE_NAME:-authlab}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-root}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-hari}
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_LOCAL_LAB_ONLY_32_BYTES_MIN_XXXXXXX}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-authcompare-client}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:-local-oauth-secret-change-me}
+      OAUTH_ISSUER_URI: http://oauth-server:9000
+      OAUTH_BROWSER_URI: http://localhost:9000
+    ports: ["8080:8080"]
+    networks: [authlab]
+
+  frontend:
+    build:
+      context: ../frontend
+    container_name: authlab-frontend
+    restart: unless-stopped
+    depends_on: [backend]
+    environment:
+      REACT_APP_API_BASE_URL: http://localhost:8080
+    ports: ["3000:3000"]
+    networks: [authlab]
+
+volumes:
+  mysqldata:

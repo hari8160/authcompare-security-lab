@@ -1,0 +1,67 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: authcompare-backend
+
+  datasource:
+    url: jdbc:mysql://${DATABASE_HOST:localhost}:${DATABASE_PORT:3306}/${DATABASE_NAME:authlab}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:hari}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+  security:
+    oauth2:
+      client:
+        registration:
+          local-lab:
+            client-id: ${OAUTH_CLIENT_ID:authcompare-client}
+            client-secret: ${OAUTH_CLIENT_SECRET:changeme-client-secret}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/local-lab"
+            scope: openid,profile,email
+            client-name: LOCAL LAB OAuth Authorization Server
+        provider:
+          local-lab:
+            # NOTE ON DOCKER NETWORKING:
+            # authorization-uri is followed by the *browser*, so it must always be a
+            # host-reachable address (localhost:9000), even inside Docker.
+            # token-uri / user-info-uri / jwk-set-uri are called *server-to-server* by
+            # this backend, so in Docker they use the internal service name
+            # (http://oauth-server:9000); when running everything without Docker they
+            # are the same host as the authorization-uri.
+            authorization-uri: ${OAUTH_BROWSER_URI:http://localhost:9000}/oauth2/authorize
+            token-uri: ${OAUTH_ISSUER_URI:http://localhost:9000}/oauth2/token
+            user-info-uri: ${OAUTH_ISSUER_URI:http://localhost:9000}/userinfo
+            jwk-set-uri: ${OAUTH_ISSUER_URI:http://localhost:9000}/oauth2/jwks
+            user-name-attribute: sub
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:CHANGE_ME_LOCAL_LAB_ONLY_32_BYTES_MIN_XXXXXXX}
+    expiration-ms: 3600000
+  cors:
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:3000}
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.authlab: INFO

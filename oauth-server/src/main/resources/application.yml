@@ -1,0 +1,15 @@
+server:
+  port: 9000
+
+logging:
+  level:
+    org.springframework.security: INFO
+
+app:
+  client:
+    id: ${OAUTH_CLIENT_ID:authcompare-client}
+    secret: ${OAUTH_CLIENT_SECRET:changeme-client-secret}
+    redirect-uri: ${OAUTH_REDIRECT_URI:http://localhost:8080/login/oauth2/code/local-lab}
+  demo-user:
+    username: ${DEMO_OAUTH_USERNAME:labuser}
+    password: ${DEMO_OAUTH_PASSWORD:LabPassword123!}
